@@ -3,6 +3,7 @@ version: '3.8'
 networks:
   gitlab-runner-net:
     driver: bridge
+    name: gitlab-runner-net
 
 services:
   gitlab-dind:
@@ -10,7 +11,9 @@ services:
     privileged: true
     restart: always
     networks:
-      - gitlab-runner-net
+      gitlab-runner-net:
+        aliases:
+          - docker
     volumes:
       - dind-data:/var/lib/docker
       - ./certs:/certs
@@ -36,7 +39,9 @@ services:
     image: gitlab/gitlab-runner:latest
     restart: always
     networks:
-      - gitlab-runner-net
+      gitlab-runner-net:
+        aliases:
+          - gitlab-runner
     depends_on:
       gitlab-dind:
         condition: service_healthy
@@ -48,7 +53,7 @@ services:
       # - /var/run/docker.sock:/var/run/docker.sock
     environment:
       # Docker connection settings
-      - DOCKER_HOST=tcp://gitlab-dind:2375
+      - DOCKER_HOST=tcp://docker:2375
       - DOCKER_TLS_CERTDIR=""
       - DOCKER_DRIVER=overlay2
       # GitLab connection settings

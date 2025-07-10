@@ -12,7 +12,7 @@ check_interval = 0
   environment = [
     "DOCKER_DRIVER=overlay2",
     "DOCKER_TLS_CERTDIR=",
-    "DOCKER_HOST=tcp://gitlab-dind:2375"
+    "DOCKER_HOST=tcp://docker:2375"
   ]
   
   [runners.custom_build_dir]
@@ -26,8 +26,7 @@ check_interval = 0
     disable_cache = false
     volumes = [
       "/certs/client",
-      "/cache",
-      "/var/run/docker.sock:/var/run/docker.sock"
+      "/cache"
     ]
     shm_size = 0
     network_mode = "gitlab-runner-net"

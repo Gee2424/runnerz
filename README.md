@@ -37,7 +37,7 @@ This repository contains a Docker Compose setup for running GitLab Runner with D
 ## Quick Start
 
 1. **Clone and configure**:
-   ```bash
+```bash
    git clone <repository-url>
    cd runnerz
    ```
@@ -48,12 +48,12 @@ This repository contains a Docker Compose setup for running GitLab Runner with D
    - `REGISTRATION_TOKEN`: Your runner registration token
 
 3. **Start the services**:
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+docker-compose up -d
+```
 
 4. **Check status**:
-   ```bash
+```bash
    docker-compose ps
    docker-compose logs -f gitlab-runner
    ```
