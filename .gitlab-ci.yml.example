@@ -1,0 +1,218 @@
+# Example GitLab CI/CD configuration for Docker-in-Docker runner
+# Copy this file to .gitlab-ci.yml and customize for your project
+
+# Global configuration
+default:
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - docker info
+
+# Variables for Docker-in-Docker
+variables:
+  # Docker connection settings
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+  
+  # Build settings
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_INLINE_CACHE: 1
+  
+  # Image naming
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHA
+
+# Pipeline stages
+stages:
+  - validate
+  - build
+  - test
+  - security
+  - release
+  - deploy
+
+# Validate Dockerfile and dependencies
+validate:
+  stage: validate
+  script:
+    - echo "Validating Dockerfile..."
+    - docker build --dry-run .
+    - echo "Checking for security vulnerabilities..."
+    - docker run --rm -v $(pwd):/app -w /app hadolint/hadolint Dockerfile || true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Build Docker image
+build:
+  stage: build
+  script:
+    # Login to container registry
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    
+    # Pull latest image for layer caching
+    - docker pull $IMAGE_NAME:latest || true
+    
+    # Build image with cache
+    - |
+      docker build \
+        --cache-from $IMAGE_NAME:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --tag $IMAGE_NAME:$IMAGE_TAG \
+        --tag $IMAGE_NAME:latest \
+        .
+    
+    # Push images to registry
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+    - docker push $IMAGE_NAME:latest
+    
+    # Save image metadata
+    - docker inspect $IMAGE_NAME:$IMAGE_TAG > image-info.json
+  artifacts:
+    reports:
+      dotenv: build.env
+    paths:
+      - image-info.json
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Run tests in container
+test:
+  stage: test
+  script:
+    # Pull the built image
+    - docker pull $IMAGE_NAME:$IMAGE_TAG
+    
+    # Run tests
+    - docker run --rm $IMAGE_NAME:$IMAGE_TAG npm test
+    - docker run --rm $IMAGE_NAME:$IMAGE_TAG npm run lint
+  dependencies:
+    - build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Security scanning
+security:
+  stage: security
+  script:
+    # Pull the built image
+    - docker pull $IMAGE_NAME:$IMAGE_TAG
+    
+    # Run Trivy vulnerability scanner
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image $IMAGE_NAME:$IMAGE_TAG
+    
+    # Run container security scan
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/grype $IMAGE_NAME:$IMAGE_TAG
+  dependencies:
+    - build
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Release with semantic versioning
+release:
+  stage: release
+  script:
+    # Login to container registry
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    
+    # Pull the built image
+    - docker pull $IMAGE_NAME:$IMAGE_TAG
+    
+    # Tag with version if it's a tag
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:$CI_COMMIT_TAG
+        docker push $IMAGE_NAME:$CI_COMMIT_TAG
+        echo "Released version $CI_COMMIT_TAG"
+      fi
+  dependencies:
+    - build
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# Deploy to staging
+deploy-staging:
+  stage: deploy
+  script:
+    - echo "Deploying to staging environment..."
+    - docker pull $IMAGE_NAME:$IMAGE_TAG
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
+    - docker push $IMAGE_NAME:staging
+    # Add your deployment commands here
+    - echo "Deployment to staging completed"
+  environment:
+    name: staging
+    url: https://staging.example.com
+  dependencies:
+    - build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Deploy to production
+deploy-production:
+  stage: deploy
+  script:
+    - echo "Deploying to production environment..."
+    - docker pull $IMAGE_NAME:$IMAGE_TAG
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:production
+    - docker push $IMAGE_NAME:production
+    # Add your deployment commands here
+    - echo "Deployment to production completed"
+  environment:
+    name: production
+    url: https://example.com
+  dependencies:
+    - build
+  rules:
+    - if: $CI_COMMIT_TAG
+  when: manual
+
+# Multi-platform build example
+build-multiarch:
+  stage: build
+  script:
+    # Login to container registry
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    
+    # Set up buildx
+    - docker buildx create --use --name multiarch-builder
+    - docker buildx inspect --bootstrap
+    
+    # Build for multiple architectures
+    - |
+      docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --cache-from type=registry,ref=$IMAGE_NAME:cache \
+        --cache-to type=registry,ref=$IMAGE_NAME:cache,mode=max \
+        --tag $IMAGE_NAME:$IMAGE_TAG \
+        --tag $IMAGE_NAME:latest \
+        --push \
+        .
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Cleanup old images (run periodically)
+cleanup:
+  stage: .pre
+  script:
+    # Login to container registry
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    
+    # Remove old images (keep last 10)
+    - |
+      docker images $IMAGE_NAME --format "table {{.Repository}}:{{.Tag}}\t{{.CreatedAt}}" | \
+      tail -n +2 | \
+      sort -k2 -r | \
+      tail -n +11 | \
+      awk '{print $1}' | \
+      xargs -r docker rmi || true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  when: manual 

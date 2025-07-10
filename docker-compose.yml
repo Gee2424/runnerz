@@ -15,8 +15,22 @@ services:
       - dind-data:/var/lib/docker
       - ./certs:/certs
     environment:
+      # TLS configuration - set to empty string to disable TLS
       - DOCKER_TLS_CERTDIR=""
-    command: ["--storage-driver=overlay2", "--tls=false"]
+      # Enable overlay2 storage driver for better performance
+      - DOCKER_DRIVER=overlay2
+    command: [
+      "--storage-driver=overlay2",
+      "--tls=false",
+      "--host=tcp://0.0.0.0:2375",
+      "--host=unix:///var/run/docker.sock"
+    ]
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
@@ -24,17 +38,33 @@ services:
     networks:
       - gitlab-runner-net
     depends_on:
-      - gitlab-dind
+      gitlab-dind:
+        condition: service_healthy
     volumes:
       - ./config:/etc/gitlab-runner
       - ./certs:/certs
       - ./entrypoint.sh:/entrypoint.sh
+      # Optional: Mount Docker socket for additional Docker operations
+      # - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      # Docker connection settings
       - DOCKER_HOST=tcp://gitlab-dind:2375
       - DOCKER_TLS_CERTDIR=""
+      - DOCKER_DRIVER=overlay2
+      # GitLab connection settings
       - CI_SERVER_URL=https://clab.mwihoko.com
       - REGISTRATION_TOKEN=glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0
+      # Performance optimizations
+      - GIT_STRATEGY=clone
+      - GIT_CHECKOUT=true
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "gitlab-runner", "verify"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   dind-data:
+    driver: local

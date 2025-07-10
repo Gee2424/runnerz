@@ -1,10 +1,22 @@
+concurrent = 1
+check_interval = 0
+
+[session_server]
+  session_timeout = 1800
+
 [[runners]]
   name = "docker-runner"
   url = "https://clab.mwihoko.com/"
   token = "glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0"
   executor = "docker"
-  environment = ["DOCKER_DRIVER=overlay2"]
+  environment = [
+    "DOCKER_DRIVER=overlay2",
+    "DOCKER_TLS_CERTDIR=",
+    "DOCKER_HOST=tcp://gitlab-dind:2375"
+  ]
+  
   [runners.custom_build_dir]
+  
   [runners.docker]
     tls_verify = false
     image = "docker:24.0.5"
@@ -12,5 +24,32 @@
     disable_entrypoint_overwrite = false
     oom_kill_disable = false
     disable_cache = false
-    volumes = ["/certs/client", "/cache"]
+    volumes = [
+      "/certs/client",
+      "/cache",
+      "/var/run/docker.sock:/var/run/docker.sock"
+    ]
     shm_size = 0
+    network_mode = "gitlab-runner-net"
+    wait_for_services_timeout = 300
+    allowed_images = ["*"]
+    allowed_services = ["*"]
+    
+    # Security settings
+    cap_add = []
+    cap_drop = []
+    security_opt = []
+    
+    # Resource limits (adjust as needed)
+    memory = "4g"
+    memory_swap = "4g"
+    memory_reservation = "1g"
+    cpus = "2"
+    
+    # DNS settings
+    dns = []
+    dns_search = []
+    
+    # Additional options
+    extra_hosts = []
+    pull_policy = ["if-not-present"]
