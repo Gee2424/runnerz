@@ -28,9 +28,13 @@ services:
     volumes:
       - ./config:/etc/gitlab-runner
       - ./certs:/certs
+      - ./entrypoint.sh:/entrypoint.sh
     environment:
       - DOCKER_HOST=tcp://gitlab-dind:2376
       - DOCKER_TLS_CERTDIR=/certs
+      - CI_SERVER_URL=https://clab.mwihoko.com
+      - REGISTRATION_TOKEN=glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
 
 volumes:
   dind-data:
