@@ -15,8 +15,8 @@ services:
       - dind-data:/var/lib/docker
       - ./certs:/certs
     environment:
-      - DOCKER_TLS_CERTDIR=/certs
-    command: ["--storage-driver=overlay2"]
+      - DOCKER_TLS_CERTDIR=""
+    command: ["--storage-driver=overlay2", "--tls=false"]
 
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
@@ -30,8 +30,8 @@ services:
       - ./certs:/certs
       - ./entrypoint.sh:/entrypoint.sh
     environment:
-      - DOCKER_HOST=tcp://gitlab-dind:2376
-      - DOCKER_TLS_CERTDIR=/certs
+      - DOCKER_HOST=tcp://gitlab-dind:2375
+      - DOCKER_TLS_CERTDIR=""
       - CI_SERVER_URL=https://clab.mwihoko.com
       - REGISTRATION_TOKEN=glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
