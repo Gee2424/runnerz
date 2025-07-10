@@ -1,11 +1,36 @@
 version: '3.8'
 
+networks:
+  gitlab-runner-net:
+    driver: bridge
+
 services:
+  gitlab-dind:
+    image: docker:24.0.5-dind
+    privileged: true
+    restart: always
+    networks:
+      - gitlab-runner-net
+    volumes:
+      - dind-data:/var/lib/docker
+      - ./certs:/certs
+    environment:
+      - DOCKER_TLS_CERTDIR=/certs
+    command: ["--storage-driver=overlay2"]
+
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
-    container_name: gitlab-runner
     restart: always
-    privileged: true   # <-- Add this line
+    networks:
+      - gitlab-runner-net
+    depends_on:
+      - gitlab-dind
     volumes:
       - ./config:/etc/gitlab-runner
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ./certs:/certs
+    environment:
+      - DOCKER_HOST=tcp://gitlab-dind:2376
+      - DOCKER_TLS_CERTDIR=/certs
+
+volumes:
+  dind-data:
