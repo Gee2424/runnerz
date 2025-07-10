@@ -1,0 +1,15 @@
+[[runners]]
+  name = "docker-runner"
+  url = "https://gitlab.com/"
+  token = "glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0"
+  executor = "docker"
+  [runners.custom_build_dir]
+  [runners.docker]
+    tls_verify = false
+    image = "docker:latest"
+    privileged = true
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]
+    shm_size = 0
