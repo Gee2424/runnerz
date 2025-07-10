@@ -1,6 +1,6 @@
 [[runners]]
   name = "docker-runner"
-  url = "https://gitlab.com/"
+  url = "https://clab.mwihoko.com/"
   token = "glrt-dPx10xUfg8Xn_Mdir1-dj3Q6MQp1OjEH.01.0w06un0q0"
   executor = "docker"
   environment = ["DOCKER_DRIVER=overlay2"]
