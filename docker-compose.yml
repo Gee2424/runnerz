@@ -16,12 +16,9 @@ services:
           - docker
     volumes:
       - dind-data:/var/lib/docker
-      - ./certs:/certs
     environment:
-      # TLS configuration - set to empty string to disable TLS
-      - DOCKER_TLS_CERTDIR=""
-      # Enable overlay2 storage driver for better performance
-      - DOCKER_DRIVER=overlay2
+      # Disable TLS completely
+      - DOCKER_TLS_CERTDIR=
     command: [
       "--storage-driver=overlay2",
       "--tls=false",

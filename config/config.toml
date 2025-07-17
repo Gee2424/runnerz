@@ -12,13 +12,13 @@ check_interval = 0
   environment = [
     "DOCKER_DRIVER=overlay2",
     "DOCKER_TLS_CERTDIR=",
-    "DOCKER_HOST=tcp://docker:2375"
+    "DOCKER_HOST=tcp://docker:2376"
   ]
   
   [runners.custom_build_dir]
   
   [runners.docker]
-    tls_verify = false
+    tls_verify = true
     image = "docker:24.0.5"
     privileged = true
     disable_entrypoint_overwrite = false
@@ -29,7 +29,7 @@ check_interval = 0
       "/cache"
     ]
     shm_size = 0
-    network_mode = "gitlab-runner-net"
+    network_mode = "host"
     wait_for_services_timeout = 300
     allowed_images = ["*"]
     allowed_services = ["*"]
